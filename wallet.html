@@ -22,39 +22,38 @@
     </header>
 
     <div class="page-container">
-        <div class="form-card" style="max-width: 600px;">
-            <h2 style="text-align: center;">Кошелек</h2>
+        <!-- Уменьшил максимальную ширину карточки для аккуратности -->
+        <div class="form-card" style="max-width: 550px; padding: 50px 40px;">
             
-            <!-- Блок с балансом -->
-            <div style="text-align: center; margin: 30px 0;">
-                <p style="color: var(--muted); font-size: 15px; margin-bottom: 10px;">Ваш баланс</p>
-                <div id="wallet-balance" style="font-size: 56px; font-weight: 900; background: linear-gradient(90deg, #00d2ff, #00ff88); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 15px rgba(0, 210, 255, 0.3));">
+            <div style="text-align: center;">
+                <p style="color: var(--muted); font-size: 15px; margin-bottom: 15px;">Ваш баланс</p>
+                
+                <!-- Блок с балансом и неоновым свечением -->
+                <div id="wallet-balance" style="
+                    font-size: 64px; 
+                    font-weight: 900; 
+                    background: linear-gradient(90deg, #00d2ff, #00ff88); 
+                    -webkit-background-clip: text; 
+                    -webkit-text-fill-color: transparent; 
+                    filter: drop-shadow(0 0 20px rgba(0, 210, 255, 0.4)) drop-shadow(0 0 40px rgba(0, 255, 136, 0.2));
+                    line-height: 1.2;
+                ">
                     0 ₽
                 </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-                <p style="color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center;">
-                    Пополняйте кошелек через Telegram Stars, покупайте эксклюзивные ресурсы и делайте свой проект красочнее!
+            <!-- Блок с Telegram Stars -->
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 25px; margin-top: 40px; text-align: center;">
+                <p style="color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+                    Пополняйте кошелек через <b style="color: #fff;">Telegram Stars</b>, покупайте эксклюзивные ресурсы и делайте свой проект красочнее!
                 </p>
+                <button class="btn btn-main" style="width: 100%; max-width: 250px; margin: 0 auto; font-size: 15px; padding: 14px 20px;" onclick="buyStars()">
+                    ⭐ Купить Stars
+                </button>
             </div>
 
-            <!-- Форма вывода (демо) -->
-            <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 25px;">
-                <h3 style="font-size: 16px; margin-bottom: 15px;">Вывод средств</h3>
-                <div class="form-group">
-                    <label>Сумма вывода (мин. 100 ₽)</label>
-                    <input type="number" id="withdraw-amount" class="form-input" placeholder="100">
-                </div>
-                <div class="form-group">
-                    <label>Ссылка (Stars)</label>
-                    <input type="text" id="withdraw-card" class="form-input" placeholder="0000 0000 0000 0000">
-                </div>
-                <button class="btn btn-main btn-full" onclick="withdrawMoney()">Вывести</button>
-            </div>
-
-            <div style="text-align: center; margin-top: 25px;">
-                <a href="profile.html" class="form-link">← Вернуться в профиль</a>
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="profile.html" class="form-link" style="margin-top: 0;">← Вернуться в профиль</a>
             </div>
         </div>
     </div>
@@ -71,8 +70,11 @@
             if (!session) return window.location.href = 'login.html';
             
             currentUser = session.user;
+            await updateBalanceUI();
+        }
 
-            // Загружаем баланс из профиля
+        // Функция для загрузки и обновления баланса
+        async function updateBalanceUI() {
             const { data: profile } = await _supabase
                 .from('profiles')
                 .select('balance')
@@ -83,45 +85,27 @@
             document.getElementById('wallet-balance').textContent = currentBalance + ' ₽';
         }
 
-        async function withdrawMoney() {
-            const amountInput = document.getElementById('withdraw-amount').value;
-            const cardInput = document.getElementById('withdraw-card').value;
-            const amount = parseFloat(amountInput);
+        // Имитация покупки звезд (начисляет 1000 рублей)
+        async function buyStars() {
+            showToast('Перенаправление в Telegram...', 'info');
+            
+            // Здесь в будущем можно сделать интеграцию с Telegram Invoice
+            
+            // Для теста просто начислим баланс
+            setTimeout(async () => {
+                const newBalance = currentBalance + 1000;
+                const { error } = await _supabase
+                    .from('profiles')
+                    .update({ balance: newBalance })
+                    .eq('id', currentUser.id);
 
-            if (!amount || amount < 100) {
-                return showToast('Минимальная сумма вывода — 100 ₽', 'error');
-            }
-            if (amount > currentBalance) {
-                return showToast('Недостаточно средств на балансе', 'error');
-            }
-            if (!cardInput) {
-                return showToast('Введите реквизиты для вывода', 'error');
-            }
-
-            // Блокируем кнопку от двойного нажатия
-            const btn = event.target;
-            btn.textContent = 'Обработка...';
-            btn.disabled = true;
-
-            // Списываем баланс (в реальности здесь должен быть запрос к API банка)
-            const newBalance = currentBalance - amount;
-            const { error } = await _supabase
-                .from('profiles')
-                .update({ balance: newBalance })
-                .eq('id', currentUser.id);
-
-            if (error) {
-                showToast('Ошибка базы данных: ' + error.message, 'error');
-                btn.textContent = 'Вывести';
-                btn.disabled = false;
-            } else {
-                showToast('Заявка на вывод создана! Ожидайте поступления.', 'success');
-                document.getElementById('wallet-balance').textContent = newBalance + ' ₽';
-                document.getElementById('withdraw-amount').value = '';
-                document.getElementById('withdraw-card').value = '';
-                btn.textContent = 'Вывести';
-                btn.disabled = false;
-            }
+                if (!error) {
+                    showToast('Баланс успешно пополнен на 1000 ₽!', 'success');
+                    await updateBalanceUI();
+                } else {
+                    showToast('Ошибка пополнения', 'error');
+                }
+            }, 1500);
         }
 
         init();
