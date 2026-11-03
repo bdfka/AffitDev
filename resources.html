@@ -136,9 +136,16 @@
 
         async function downloadFromModal() {
             if (!currentUser) return showToast('Войдите, чтобы скачать!', 'error');
+            
+            // --- ЛОГИРОВАНИЕ СКАЧИВАНИЯ ---
+            await _supabase.from('downloads').insert({
+                resource_id: currentResId,
+                user_id: currentUser.id
+            });
+            // -----------------------------
+
             if (currentFile) window.open(currentFile, '_blank');
             
-            // Отправка уведомления в ТГ
             const { data: p } = await _supabase.from('profiles').select('telegram_id').eq('id', currentUser.id).single();
             if (p?.telegram_id) {
                 fetch('https://твой-бот.onrender.com/api/notify-download', { 
