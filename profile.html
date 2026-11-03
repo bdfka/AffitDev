@@ -12,40 +12,80 @@
             <div class="custom-logo"><svg viewBox="0 0 100 100"><path d="M 15 10 L 85 10 C 88 10 90 12 90 15 L 90 85 C 90 88 88 90 85 90 L 15 90 C 12 90 10 88 10 85 L 10 15 C 10 12 12 10 15 10 Z M 25 25 L 25 75 L 40 75 L 50 55 L 60 75 L 75 75 L 75 25 L 60 25 L 60 50 L 50 35 L 40 50 L 40 25 L 25 25 Z" fill="#fff" fill-rule="evenodd" clip-rule="evenodd"/></svg></div>
             <span class="logo-text">AffitDev</span>
         </a>
-        <div class="auth-buttons"><a href="index.html" class="btn btn-login">На главную</a><button onclick="logout()" class="btn btn-login">Выйти</button></div>
+        <div class="auth-buttons">
+            <a href="index.html" class="btn btn-login">На главную</a>
+            <button onclick="logout()" class="btn btn-login">Выйти</button>
+        </div>
     </header>
+    
     <div class="profile-container">
         <div id="profile-content" class="hidden">
             <div class="profile-header">
                 <div class="avatar" id="avatar">?</div>
                 <div class="profile-info">
+                    <!-- Ник с галочкой будет здесь -->
                     <h2 id="profile-username" style="display:flex; align-items:center;">...</h2>
                     <p id="profile-email">...</p>
                 </div>
             </div>
+            
             <div class="profile-grid">
+                <!-- Смена ника -->
                 <div class="form-card">
                     <h2 style="font-size:20px;">Смена ника</h2>
-                    <div class="form-group"><label>Новый никнейм</label><input type="text" id="new-username" class="form-input"></div>
+                    <div class="form-group">
+                        <label>Новый никнейм</label>
+                        <input type="text" id="new-username" class="form-input">
+                    </div>
                     <button class="btn btn-main btn-full" onclick="changeUsername()">Сохранить</button>
                 </div>
+                
+                <!-- Telegram ID -->
                 <div class="form-card">
                     <h2 style="font-size:20px;">Telegram</h2>
                     <div class="form-group">
-                        <label>Ваш Telegram ID</label>
+                        <label>Ваш Telegram ID (для уведомлений)</label>
                         <input type="text" id="tg-id" class="form-input" placeholder="123456789">
-                        <small style="color:var(--muted); font-size:12px;">Узнать можно у @userinfobot</small>
+                        <small style="color:var(--muted); font-size:12px;">Узнать можно у бота @userinfobot</small>
                     </div>
                     <button class="btn btn-main btn-full" onclick="saveTelegramId()">Сохранить TG ID</button>
                 </div>
+
+                <!-- Смена пароля -->
+                <div class="form-card" style="grid-column: 1 / -1; margin-top: 10px;">
+                    <h2 style="font-size:20px;">Смена пароля</h2>
+                    <p style="color: var(--muted); font-size: 13px; margin-bottom: 15px;">
+                        Если вы зашли через Magic Link, задайте здесь пароль, чтобы входить обычным способом.
+                    </p>
+                    <div class="form-group">
+                        <label>Новый пароль (мин. 6 символов)</label>
+                        <input type="password" id="new-password" class="form-input">
+                    </div>
+                    <button class="btn btn-main btn-full" onclick="changePassword()">Сохранить пароль</button>
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px; text-align: center;">
+                <a href="wallet.html" class="btn btn-outline">Перейти в кошелек</a>
             </div>
         </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="ui.js"></script>
     <script>
         let currentUser = null;
+
+        // Шаблон галочки
+        const badgeHTML = `
+            <span class="verified-badge" title="Администратор" style="margin-left: 8px;">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+            </span>
+        `;
+
         async function init() {
             const { data: { session } } = await _supabase.auth.getSession();
             if (!session) return window.location.href = 'login.html';
@@ -59,21 +99,12 @@
             document.getElementById('new-username').value = profile?.username || '';
             document.getElementById('tg-id').value = profile?.telegram_id || '';
 
-            // Вывод ника с галочкой
+            // Вывод ника с галочкой (если админ)
             const usernameEl = document.getElementById('profile-username');
             const username = profile?.username || currentUser.email;
             
             if (profile?.is_admin) {
-                usernameEl.innerHTML = `
-                    <span class="user-name-wrapper">
-                        ${username} 
-                        <span class="verified-badge" title="Администратор">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                            </svg>
-                        </span>
-                    </span>
-                `;
+                usernameEl.innerHTML = `<span class="user-name-wrapper">${username} ${badgeHTML}</span>`;
             } else {
                 usernameEl.textContent = username;
             }
@@ -86,6 +117,18 @@
             else { showToast('Ник изменен!', 'success'); setTimeout(() => location.reload(), 1000); }
         }
 
+        async function changePassword() {
+            const newPassword = document.getElementById('new-password').value;
+            if (newPassword.length < 6) return showToast('Пароль должен быть минимум 6 символов', 'error');
+            
+            const { error } = await _supabase.auth.updateUser({ password: newPassword });
+            if (error) showToast(error.message, 'error');
+            else {
+                showToast('Пароль успешно установлен!', 'success');
+                document.getElementById('new-password').value = '';
+            }
+        }
+
         async function saveTelegramId() {
             const tgId = document.getElementById('tg-id').value;
             const { error } = await _supabase.from('profiles').update({ telegram_id: tgId }).eq('id', currentUser.id);
@@ -94,6 +137,7 @@
         }
 
         async function logout() { await _supabase.auth.signOut(); window.location.href = 'index.html'; }
+        
         init();
     </script>
 </body>
