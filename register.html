@@ -37,7 +37,7 @@
             if (error) return showToast(error.message, 'error');
             
             if (data.user) await _supabase.from('profiles').update({ username }).eq('id', data.user.id);
-            showToast('Аккаунт создан! Проверьте почту.', 'success');
+            showToast('Аккаунт создан! Теперь войдите!', 'success');
             setTimeout(() => window.location.href = 'login.html', 2000);
         }
     </script>
