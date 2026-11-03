@@ -22,7 +22,6 @@
     </header>
 
     <div class="page-container">
-        <!-- Уменьшил максимальную ширину карточки для аккуратности -->
         <div class="form-card" style="max-width: 550px; padding: 50px 40px;">
             
             <div style="text-align: center;">
@@ -47,9 +46,18 @@
                 <p style="color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
                     Пополняйте кошелек через <b style="color: #fff;">Telegram Stars</b>, покупайте эксклюзивные ресурсы и делайте свой проект красочнее!
                 </p>
-                <button class="btn btn-main" style="width: 100%; max-width: 250px; margin: 0 auto; font-size: 15px; padding: 14px 20px;" onclick="buyStars()">
-                    ⭐ Пополнить баланс
-                </button>
+                
+                <!-- Кнопки выбора суммы пополнения -->
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px;">
+                    <button class="btn btn-outline" style="padding: 10px 20px; flex: 1; min-width: 100px;" onclick="window.open('https://t.me/AffitDev_bot?start=pay_50', '_blank')">50 ⭐</button>
+                    <button class="btn btn-outline" style="padding: 10px 20px; flex: 1; min-width: 100px;" onclick="window.open('https://t.me/AffitDev_bot?start=pay_100', '_blank')">100 ⭐</button>
+                    <button class="btn btn-outline" style="padding: 10px 20px; flex: 1; min-width: 100px;" onclick="window.open('https://t.me/AffitDev_bot?start=pay_250', '_blank')">250 ⭐</button>
+                    <button class="btn btn-outline" style="padding: 10px 20px; flex: 1; min-width: 100px;" onclick="window.open('https://t.me/AffitDev_bot?start=pay_500', '_blank')">500 ⭐</button>
+                </div>
+                
+                <p style="color: var(--muted); font-size: 12px; margin-top: 15px;">
+                    1 Star = 2 ₽ • Оплата проходит в Telegram
+                </p>
             </div>
 
             <div style="text-align: center; margin-top: 30px;">
@@ -84,18 +92,6 @@
             currentBalance = parseFloat(profile?.balance) || 0;
             document.getElementById('wallet-balance').textContent = currentBalance + ' ₽';
         }
-
-        // Имитация покупки звезд (начисляет 1000 рублей)
-function buyStars() {
-    // Ссылка на бота с параметром pay_100 (пополнение на 100 Stars)
-    // ВАЖНО: Замени AffitDev_bot на юзернейм твоего бота
-    const botLink = `https://t.me/AffitDev_bot?start=buy`;
-    
-    // Открываем бота
-    window.open(botLink, '_blank');
-    
-    showToast('Перейдите в Telegram и оплатите звездами. Баланс зачислится автоматически!', 'info');
-}
 
         init();
     </script>
