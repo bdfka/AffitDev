@@ -86,27 +86,16 @@
         }
 
         // Имитация покупки звезд (начисляет 1000 рублей)
-        async function buyStars() {
-            showToast('Перенаправление в Telegram...', 'info');
-            
-            // Здесь в будущем можно сделать интеграцию с Telegram Invoice
-            
-            // Для теста просто начислим баланс
-            setTimeout(async () => {
-                const newBalance = currentBalance + 1000;
-                const { error } = await _supabase
-                    .from('profiles')
-                    .update({ balance: newBalance })
-                    .eq('id', currentUser.id);
-
-                if (!error) {
-                    showToast('Баланс успешно пополнен на 1000 ₽!', 'success');
-                    await updateBalanceUI();
-                } else {
-                    showToast('Ошибка пополнения', 'error');
-                }
-            }, 1500);
-        }
+function buyStars() {
+    // Ссылка на бота с параметром pay_100 (пополнение на 100 Stars)
+    // ВАЖНО: Замени AffitDev_bot на юзернейм твоего бота
+    const botLink = `https://t.me/AffitDev_bot?start=pay_100`;
+    
+    // Открываем бота
+    window.open(botLink, '_blank');
+    
+    showToast('Перейдите в Telegram и оплатите звездами. Баланс зачислится автоматически!', 'info');
+}
 
         init();
     </script>
