@@ -32,6 +32,7 @@
                 <button class="tab-btn" onclick="switchTab('users', event)">Пользователи</button>
             </div>
 
+            <!-- Вкладка Ресурсы -->
             <div id="tab-resources" class="tab-content active">
                 <div class="form-card" style="max-width: 100%; margin-bottom: 40px;">
                     <h2 style="font-size: 20px; margin-bottom: 20px;">➕ Опубликовать новый ресурс</h2>
@@ -75,6 +76,7 @@
                 <div id="admin-resources-list"></div>
             </div>
 
+            <!-- Вкладка Пользователи -->
             <div id="tab-users" class="tab-content">
                 <h3 style="margin-bottom: 20px;">Все пользователи</h3>
                 <table class="users-table">
@@ -89,6 +91,15 @@
     <script src="config.js"></script>
     <script src="ui.js"></script>
     <script>
+        // Шаблон галочки для админа
+        const badgeHTML = `
+            <span class="verified-badge" title="Администратор" style="margin-left: 8px;">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+            </span>
+        `;
+
         async function init() {
             const { data: { session } } = await _supabase.auth.getSession();
             if (!session) return window.location.href = 'login.html';
@@ -98,12 +109,7 @@
             // Добавляем галочку админу в шапку
             document.getElementById('admin-name').innerHTML = `
                 <span class="user-name-wrapper">
-                    👑 ${profile.username} 
-                    <span class="verified-badge" title="Администратор">
-                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                        </svg>
-                    </span>
+                    👑 ${profile.username} ${badgeHTML}
                 </span>
             `;
             
@@ -143,17 +149,89 @@
             const container = document.getElementById('admin-resources-list');
             if (!data) return;
             container.innerHTML = data.map(r => `
-                <div class="admin-resource-item" style="display:flex; justify-content:space-between; padding:15px; background:rgba(255,255,255,0.03); border-radius:12px; margin-bottom:10px;">
-                    <div><strong>${r.title}</strong> <span style="color:var(--muted); font-size:12px;">(${r.type})</span></div>
-                    <button class="btn-danger" onclick="deleteResource('${r.id}')">Удалить</button>
+                <div class="admin-resource-item" style="display:flex; justify-content:space-between; padding:15px; background:rgba(255,255,255,0.03); border-radius:12px; margin-bottom:10px; align-items:center;">
+                    <div>
+                        <strong>${r.title}</strong> 
+                        <span style="color:var(--muted); font-size:12px;">(${r.type} • ${r.version || 'v1.0'})</span>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-login" style="padding: 8px 15px; border-radius: 8px; cursor:pointer;" onclick="openEdit('${r.id}')">Редактировать</button>
+                        <button class="btn-danger" onclick="deleteResource('${r.id}')">Удалить</button>
+                    </div>
+                </div>
+                <!-- Скрытая форма редактирования -->
+                <div class="edit-form" id="edit-${r.id}" style="display:none; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border);">
+                    <h4 style="margin-bottom:15px; color:#00ff88;">Редактирование: ${r.title}</h4>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                        <div class="form-group"><label>Название</label><input type="text" id="edit-title-${r.id}" class="form-input" value="${r.title}"></div>
+                        <div class="form-group"><label>Картинка (URL)</label><input type="url" id="edit-image-${r.id}" class="form-input" value="${r.image_url || ''}"></div>
+                    </div>
+                    <div class="form-group"><label>Краткое описание</label><textarea id="edit-desc-${r.id}" class="form-input">${r.description || ''}</textarea></div>
+                    <div class="form-group"><label>Полное описание</label><textarea id="edit-extra-desc-${r.id}" class="form-input">${r.extra_desc || ''}</textarea></div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:15px;">
+                        <div class="form-group"><label>Версии</label><input type="text" id="edit-versions-${r.id}" class="form-input" value="${r.version || ''}"></div>
+                        <div class="form-group"><label>Авторы</label><input type="text" id="edit-authors-${r.id}" class="form-input" value="${r.authors || ''}"></div>
+                        <div class="form-group"><label>Релизы</label><input type="text" id="edit-releases-${r.id}" class="form-input" value="${r.releases || ''}"></div>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                        <div class="form-group"><label>Ссылка на файл (URL)</label><input type="url" id="edit-file-${r.id}" class="form-input" value="${r.file_url || ''}"></div>
+                        <div class="form-group"><label>Цена</label><input type="number" id="edit-price-${r.id}" class="form-input" value="${r.price || 0}"></div>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                        <div class="form-group">
+                            <label>Тип ресурса</label>
+                            <select id="edit-type-${r.id}" class="form-input">
+                                <option value="Сборка" ${r.type === 'Сборка' ? 'selected' : ''}>Сборка</option>
+                                <option value="Плагин" ${r.type === 'Плагин' ? 'selected' : ''}>Плагин</option>
+                                <option value="Мир" ${r.type === 'Мир' ? 'selected' : ''}>Мир</option>
+                                <option value="Ресурс пак" ${r.type === 'Ресурс пак' ? 'selected' : ''}>Ресурс пак</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>На главной?</label>
+                            <select id="edit-featured-${r.id}" class="form-input">
+                                <option value="false" ${!r.is_featured ? 'selected' : ''}>Нет</option>
+                                <option value="true" ${r.is_featured ? 'selected' : ''}>Да</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-main" style="flex:1; padding:12px;" onclick="saveEdit('${r.id}')">Сохранить</button>
+                        <button class="btn-outline" style="padding:12px;" onclick="openEdit('${r.id}')">Отмена</button>
+                    </div>
                 </div>
             `).join('');
+        }
+
+        function openEdit(id) {
+            const form = document.getElementById(`edit-${id}`);
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function saveEdit(id) {
+            const data = {
+                title: document.getElementById(`edit-title-${id}`).value,
+                image_url: document.getElementById(`edit-image-${id}`).value,
+                description: document.getElementById(`edit-desc-${id}`).value,
+                extra_desc: document.getElementById(`edit-extra-desc-${id}`).value,
+                version: document.getElementById(`edit-versions-${id}`).value,
+                authors: document.getElementById(`edit-authors-${id}`).value,
+                releases: document.getElementById(`edit-releases-${id}`).value,
+                file_url: document.getElementById(`edit-file-${id}`).value,
+                type: document.getElementById(`edit-type-${id}`).value,
+                is_featured: document.getElementById(`edit-featured-${id}`).value === 'true',
+                price: parseFloat(document.getElementById(`edit-price-${id}`).value) || 0
+            };
+            const { error } = await _supabase.from('resources').update(data).eq('id', id);
+            if (error) showToast(error.message, 'error');
+            else { showToast('Сохранено!', 'success'); loadResources(); }
         }
 
         async function deleteResource(id) {
             showConfirm('Удалить ресурс?', async (yes) => {
                 if (!yes) return;
                 await _supabase.from('resources').delete().eq('id', id);
+                showToast('Удалено', 'success');
                 loadResources();
             });
         }
@@ -162,7 +240,7 @@
             const { data } = await _supabase.from('profiles').select('*');
             document.getElementById('users-list').innerHTML = data.map(u => `
                 <tr>
-                    <td>${u.username}</td>
+                    <td>${u.username} ${u.is_admin ? '<span style="color:#00ff88;">(Админ)</span>' : ''}</td>
                     <td>${u.balance} ₽</td>
                     <td>${u.is_admin ? 'Админ' : 'Юзер'}</td>
                     <td><button class="btn-success" onclick="addBalance('${u.id}', 100)">+100₽</button></td>
