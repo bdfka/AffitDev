@@ -57,24 +57,39 @@
             setTimeout(() => { idx = (idx + 1) % words.length; el.textContent = words[idx]; el.style.opacity = 1; }, 300);
         }, 2500);
 
-        async function initHeader() {
-            const { data: { session } } = await _supabase.auth.getSession();
-            const headerAuth = document.getElementById('header-auth');
-            const heroLogin = document.getElementById('hero-login');
+async function initHeader() {
+    const { data: { session } } = await _supabase.auth.getSession();
+    const headerAuth = document.getElementById('header-auth');
+    const heroLogin = document.getElementById('hero-login');
 
-            if (session) {
-                const { data: profile } = await _supabase.from('profiles').select('username, is_admin').eq('id', session.user.id).single();
-                headerAuth.innerHTML = `
-                    <a href="profile.html" class="btn btn-login">${profile?.username || 'Профиль'}</a>
-                    ${profile?.is_admin ? '<a href="admin.html" class="btn btn-login" style="color:#00ff88;">Админ</a>' : ''}
-                    <button onclick="logout()" class="btn btn-login">Выйти</button>
-                `;
-                heroLogin.textContent = 'Профиль';
-                heroLogin.href = 'profile.html';
-            } else {
-                headerAuth.innerHTML = `<a href="login.html" class="btn btn-login">Войти</a><a href="register.html" class="btn btn-register">Регистрация</a>`;
-            }
-        }
+    // HTML-код нашей галочки
+    const badgeHTML = `
+        <span class="verified-badge" title="Верифицированный аккаунт">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+        </span>
+    `;
+
+    if (session) {
+        const { data: profile } = await _supabase.from('profiles').select('username, is_admin').eq('id', session.user.id).single();
+        
+        // Если пользователь админ, добавляем галочку
+        const userDisplay = profile?.is_admin 
+            ? `${profile.username} ${badgeHTML}` 
+            : (profile?.username || 'Профиль');
+
+        headerAuth.innerHTML = `
+            <a href="profile.html" class="btn btn-login" style="display:flex; align-items:center;">${userDisplay}</a>
+            ${profile?.is_admin ? '<a href="admin.html" class="btn btn-login" style="color:#00ff88;">Админ</a>' : ''}
+            <button onclick="logout()" class="btn btn-login">Выйти</button>
+        `;
+        heroLogin.textContent = 'Профиль';
+        heroLogin.href = 'profile.html';
+    } else {
+        headerAuth.innerHTML = `<a href="login.html" class="btn btn-login">Войти</a><a href="register.html" class="btn btn-register">Регистрация</a>`;
+    }
+}
 
         async function logout() { await _supabase.auth.signOut(); location.reload(); }
 
