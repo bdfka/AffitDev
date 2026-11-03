@@ -52,7 +52,6 @@
             const headerAuth = document.getElementById('header-auth');
             const heroLogin = document.getElementById('hero-login');
 
-            // Шаблон идеальной галочки
             const badgeHTML = `
                 <span class="verified-badge" title="Администратор">
                     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -64,7 +63,6 @@
             if (session) {
                 const { data: profile } = await _supabase.from('profiles').select('username, is_admin').eq('id', session.user.id).single();
                 
-                // Если админ - добавляем галочку в ник
                 const userDisplay = profile?.is_admin 
                     ? `<span class="user-name-wrapper">${profile.username} ${badgeHTML}</span>` 
                     : (profile?.username || 'Профиль');
