@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Личный кабинет — AffitDev</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <header>
+        <a href="index.html" class="logo-container">
+            <div class="custom-logo"><svg viewBox="0 0 100 100"><path d="M 15 10 L 85 10 C 88 10 90 12 90 15 L 90 85 C 90 88 88 90 85 90 L 15 90 C 12 90 10 88 10 85 L 10 15 C 10 12 12 10 15 10 Z M 25 25 L 25 75 L 40 75 L 50 55 L 60 75 L 75 75 L 75 25 L 60 25 L 60 50 L 50 35 L 40 50 L 40 25 L 25 25 Z" fill="#fff" fill-rule="evenodd" clip-rule="evenodd"/></svg></div>
+            <span class="logo-text">AffitDev</span>
+        </a>
+        <div class="auth-buttons"><a href="index.html" class="btn btn-login">На главную</a><button onclick="logout()" class="btn btn-login">Выйти</button></div>
+    </header>
+    <div class="profile-container">
+        <div id="profile-content" class="hidden">
+            <div class="profile-header">
+                <div class="avatar" id="avatar">?</div>
+                <div class="profile-info"><h2 id="profile-username">...</h2><p id="profile-email">...</p></div>
+            </div>
+            <div class="profile-grid">
+                <div class="form-card">
+                    <h2 style="font-size:20px;">Смена ника</h2>
+                    <div class="form-group"><label>Новый никнейм</label><input type="text" id="new-username" class="form-input"></div>
+                    <button class="btn btn-main btn-full" onclick="changeUsername()">Сохранить</button>
+                </div>
+                <div class="form-card">
+                    <h2 style="font-size:20px;">Telegram</h2>
+                    <div class="form-group">
+                        <label>Ваш Telegram ID</label>
+                        <input type="text" id="tg-id" class="form-input" placeholder="123456789">
+                        <small style="color:var(--muted); font-size:12px;">Узнать можно у @userinfobot</small>
+                    </div>
+                    <button class="btn btn-main btn-full" onclick="saveTelegramId()">Сохранить TG ID</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="ui.js"></script>
+    <script>
+        let currentUser = null;
+        async function init() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) return window.location.href = 'login.html';
+            currentUser = session.user;
+            const { data: profile } = await _supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+            document.getElementById('profile-content').classList.remove('hidden');
+            document.getElementById('profile-username').textContent = profile?.username || currentUser.email;
+            document.getElementById('profile-email').textContent = currentUser.email;
+            document.getElementById('avatar').textContent = (profile?.username || 'U').charAt(0).toUpperCase();
+            document.getElementById('new-username').value = profile?.username || '';
+            document.getElementById('tg-id').value = profile?.telegram_id || '';
+        }
+        async function changeUsername() {
+            const newName = document.getElementById('new-username').value;
+            const { error } = await _supabase.from('profiles').update({ username: newName }).eq('id', currentUser.id);
+            if (error) showToast(error.message, 'error');
+            else { showToast('Ник изменен!', 'success'); document.getElementById('profile-username').textContent = newName; }
+        }
+        async function saveTelegramId() {
+            const tgId = document.getElementById('tg-id').value;
+            const { error } = await _supabase.from('profiles').update({ telegram_id: tgId }).eq('id', currentUser.id);
+            if (error) showToast(error.message, 'error');
+            else showToast('TG ID сохранен!', 'success');
+        }
+        async function logout() { await _supabase.auth.signOut(); window.location.href = 'index.html'; }
+        init();
+    </script>
+</body>
+</html>

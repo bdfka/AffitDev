@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Ресурсы — AffitDev</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <header>
+        <a href="index.html" class="logo-container">
+            <div class="custom-logo"><svg viewBox="0 0 100 100"><path d="M 15 10 L 85 10 C 88 10 90 12 90 15 L 90 85 C 90 88 88 90 85 90 L 15 90 C 12 90 10 88 10 85 L 10 15 C 10 12 12 10 15 10 Z M 25 25 L 25 75 L 40 75 L 50 55 L 60 75 L 75 75 L 75 25 L 60 25 L 60 50 L 50 35 L 40 50 L 40 25 L 25 25 Z" fill="#fff" fill-rule="evenodd" clip-rule="evenodd"/></svg></div>
+            <span class="logo-text">AffitDev</span>
+        </a>
+        <div id="header-auth" class="auth-buttons"></div>
+    </header>
+
+    <div style="padding: 60px 50px; max-width: 1400px; margin: 0 auto; width: 100%;">
+        <h1 style="font-size: 42px; font-weight: 900; margin-bottom: 20px;">Все ресурсы</h1>
+        <div class="filters-container">
+            <button class="filter-btn active" onclick="setFilter('all', event)">Все цены</button>
+            <button class="filter-btn" onclick="setFilter('free', event)">Бесплатные</button>
+            <button class="filter-btn" onclick="setFilter('paid', event)">Платные</button>
+            <select id="type-filter" class="filter-btn" style="background: rgba(255, 255, 255, 0.03); outline: none; cursor: pointer;" onchange="applyFilters()">
+                <option value="all">Все типы</option>
+                <option value="Сборка">Сборка</option>
+                <option value="Плагин">Плагин</option>
+                <option value="Мир">Мир</option>
+                <option value="Ресурс пак">Ресурс пак</option>
+            </select>
+            <input type="text" class="search-input" id="search-input" placeholder="Поиск..." oninput="applyFilters()">
+        </div>
+        <div class="cards-grid" id="resources-grid"></div>
+    </div>
+
+    <div class="modal-overlay" id="resource-modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">✕</button>
+            <div class="modal-header">
+                <div class="modal-header-image" id="modal-img"></div>
+                <div class="modal-info"><h2 id="modal-title"></h2><div class="modal-price" id="modal-price"></div></div>
+                <div class="modal-actions"><button class="btn btn-main btn-full" onclick="downloadFromModal()">Скачать</button></div>
+            </div>
+            <div class="modal-body">
+                <div><div class="modal-section-title">Описание</div><div class="modal-desc-text" id="modal-desc"></div></div>
+                <div>
+                    <div class="modal-meta-item"><div class="modal-section-title">Авторы</div><div id="modal-authors"></div></div>
+                    <div class="modal-meta-item"><div class="modal-section-title">Версия</div><div class="modal-meta-value versions" id="modal-versions"></div></div>
+                </div>
+                <div class="comments-section">
+                    <div class="modal-section-title">Обсуждение</div>
+                    <div class="comment-form" id="comment-form"><input type="text" id="comment-input" class="comment-input" placeholder="Написать..."><button class="btn-main" style="padding: 0 20px;" onclick="submitComment()">Отправить</button></div>
+                    <div id="comments-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="ui.js"></script>
+    <script>
+        let allResources = [], filteredResources = [], currentFilter = 'all', currentResId = null, currentFile = '', currentUser = null;
+        
+        async function init() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            currentUser = session?.user || null;
+            if (currentUser) {
+                const { data: p } = await _supabase.from('profiles').select('username, is_admin').eq('id', currentUser.id).single();
+                document.getElementById('header-auth').innerHTML = `<a href="profile.html" class="btn btn-login">${p?.username}</a><button onclick="_supabase.auth.signOut().then(()=>location.reload())" class="btn btn-login">Выйти</button>`;
+            } else {
+                document.getElementById('header-auth').innerHTML = `<a href="login.html" class="btn btn-login">Войти</a>`;
+                document.getElementById('comment-form').style.display = 'none';
+            }
+            const { data } = await _supabase.from('resources').select('*').order('created_at', { ascending: false });
+            allResources = data || [];
+            applyFilters();
+        }
+
+        function setFilter(f, e) {
+            currentFilter = f;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            if (e) e.target.classList.add('active');
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const q = document.getElementById('search-input').value.toLowerCase();
+            const type = document.getElementById('type-filter').value;
+            filteredResources = allResources.filter(r => {
+                const price = parseFloat(r.price) || 0;
+                if (currentFilter === 'free' && price > 0) return false;
+                if (currentFilter === 'paid' && price === 0) return false;
+                if (type !== 'all' && r.type !== type) return false;
+                if (q && !r.title.toLowerCase().includes(q)) return false;
+                return true;
+            });
+            render();
+        }
+
+        function render() {
+            document.getElementById('resources-grid').innerHTML = filteredResources.map(r => {
+                const p = parseFloat(r.price) || 0;
+                return `<div class="card" onclick="openModal('${r.id}')">
+                    <div class="card-image">${r.image_url ? `<img src="${r.image_url}">` : `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>`}</div>
+                    <div class="card-content">
+                        <div class="card-header"><div class="card-title">${r.title}</div><div class="card-version">${r.type}</div></div>
+                        <div class="card-footer"><div class="${p>0?'price-paid':'price-free'}">${p>0?p+' ₽':'Бесплатно'}</div><button class="btn-download">Открыть</button></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function openModal(id) {
+            const r = allResources.find(x => x.id == id);
+            currentResId = id; currentFile = r.file_url;
+            document.getElementById('modal-title').textContent = r.title;
+            document.getElementById('modal-price').textContent = (parseFloat(r.price)||0) > 0 ? r.price + ' ₽' : 'Бесплатно';
+            document.getElementById('modal-desc').textContent = r.extra_desc || r.description || '';
+            document.getElementById('modal-authors').textContent = r.authors || '';
+            document.getElementById('modal-img').innerHTML = r.image_url ? `<img src="${r.image_url}">` : '';
+            document.getElementById('resource-modal').classList.add('active');
+            loadComments();
+        }
+
+        function closeModal() { document.getElementById('resource-modal').classList.remove('active'); }
+
+        async function downloadFromModal() {
+            if (!currentUser) return showToast('Войдите, чтобы скачать!', 'error');
+            if (currentFile) window.open(currentFile, '_blank');
+            const { data: p } = await _supabase.from('profiles').select('telegram_id').eq('id', currentUser.id).single();
+            if (p?.telegram_id) fetch('http://localhost:3000/api/notify-download', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ userId: p.telegram_id, resourceName: document.getElementById('modal-title').textContent }) }).catch(()=>{});
+        }
+
+        async function loadComments() {
+            const { data } = await _supabase.from('comments').select('*').eq('resource_id', currentResId).order('created_at');
+            document.getElementById('comments-list').innerHTML = (data || []).map(c => `<div class="comment-item"><div class="comment-avatar">${c.username[0]}</div><div class="comment-body"><div class="comment-author">${c.username}</div><div class="comment-text">${c.text}</div></div></div>`).join('');
+        }
+
+        async function submitComment() {
+            const t = document.getElementById('comment-input').value;
+            if (!t) return;
+            const { data: p } = await _supabase.from('profiles').select('username').eq('id', currentUser.id).single();
+            await _supabase.from('comments').insert({ resource_id: currentResId, user_id: currentUser.id, username: p.username, text: t });
+            document.getElementById('comment-input').value = '';
+            loadComments();
+        }
+
+        init();
+    </script>
+</body>
+</html>

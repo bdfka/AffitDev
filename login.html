@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Вход — AffitDev</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <header>
+        <a href="index.html" class="logo-container">
+            <div class="custom-logo"><svg viewBox="0 0 100 100"><path d="M 15 10 L 85 10 C 88 10 90 12 90 15 L 90 85 C 90 88 88 90 85 90 L 15 90 C 12 90 10 88 10 85 L 10 15 C 10 12 12 10 15 10 Z M 25 25 L 25 75 L 40 75 L 50 55 L 60 75 L 75 75 L 75 25 L 60 25 L 60 50 L 50 35 L 40 50 L 40 25 L 25 25 Z" fill="#fff" fill-rule="evenodd" clip-rule="evenodd"/></svg></div>
+            <span class="logo-text">AffitDev</span>
+        </a>
+    </header>
+    <div class="page-container">
+        <div class="form-card">
+            <h2>Вход</h2>
+            <div id="alert" class="alert"></div>
+            <div class="form-group"><label>Email</label><input type="email" id="email" class="form-input"></div>
+            <div class="form-group"><label>Пароль</label><input type="password" id="password" class="form-input"></div>
+            <button class="btn btn-main btn-full" onclick="login()">Войти</button>
+            <a href="register.html" class="form-link">Нет аккаунта? Зарегистрироваться</a>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="ui.js"></script>
+    <script>
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { error } = await _supabase.auth.signInWithPassword({ email, password });
+            if (error) showToast(error.message, 'error');
+            else { showToast('Успешный вход!', 'success'); setTimeout(() => window.location.href = 'index.html', 1000); }
+        }
+    </script>
+</body>
+</html>
