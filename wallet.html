@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Кошелек — AffitDev</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="bg-glow"></div>
+    
+    <header>
+        <a href="index.html" class="logo-container">
+            <div class="custom-logo">
+                <svg viewBox="0 0 100 100"><path d="M 15 10 L 85 10 C 88 10 90 12 90 15 L 90 85 C 90 88 88 90 85 90 L 15 90 C 12 90 10 88 10 85 L 10 15 C 10 12 12 10 15 10 Z M 25 25 L 25 75 L 40 75 L 50 55 L 60 75 L 75 75 L 75 25 L 60 25 L 60 50 L 50 35 L 40 50 L 40 25 L 25 25 Z" fill="#fff" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+            </div>
+            <span class="logo-text">AffitDev</span>
+        </a>
+        <div class="auth-buttons">
+            <a href="profile.html" class="btn btn-login">Профиль</a>
+            <a href="index.html" class="btn btn-login">На главную</a>
+        </div>
+    </header>
+
+    <div class="page-container">
+        <div class="form-card" style="max-width: 600px;">
+            <h2 style="text-align: center;">Кошелек</h2>
+            
+            <!-- Блок с балансом -->
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="color: var(--muted); font-size: 15px; margin-bottom: 10px;">Ваш баланс</p>
+                <div id="wallet-balance" style="font-size: 56px; font-weight: 900; background: linear-gradient(90deg, #00d2ff, #00ff88); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 15px rgba(0, 210, 255, 0.3));">
+                    0 ₽
+                </div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <p style="color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center;">
+                    Все ресурсы на сайте бесплатны. Баланс начисляется администрацией для поддержки активных авторов и будущих премиум-функций.
+                </p>
+            </div>
+
+            <!-- Форма вывода (демо) -->
+            <div style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 25px;">
+                <h3 style="font-size: 16px; margin-bottom: 15px;">Вывод средств</h3>
+                <div class="form-group">
+                    <label>Сумма вывода (мин. 100 ₽)</label>
+                    <input type="number" id="withdraw-amount" class="form-input" placeholder="100">
+                </div>
+                <div class="form-group">
+                    <label>Реквизиты (карта / СБП)</label>
+                    <input type="text" id="withdraw-card" class="form-input" placeholder="0000 0000 0000 0000">
+                </div>
+                <button class="btn btn-main btn-full" onclick="withdrawMoney()">Вывести</button>
+            </div>
+
+            <div style="text-align: center; margin-top: 25px;">
+                <a href="profile.html" class="form-link">← Вернуться в профиль</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="ui.js"></script>
+    <script>
+        let currentUser = null;
+        let currentBalance = 0;
+
+        async function init() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) return window.location.href = 'login.html';
+            
+            currentUser = session.user;
+
+            // Загружаем баланс из профиля
+            const { data: profile } = await _supabase
+                .from('profiles')
+                .select('balance')
+                .eq('id', currentUser.id)
+                .single();
+
+            currentBalance = parseFloat(profile?.balance) || 0;
+            document.getElementById('wallet-balance').textContent = currentBalance + ' ₽';
+        }
+
+        async function withdrawMoney() {
+            const amountInput = document.getElementById('withdraw-amount').value;
+            const cardInput = document.getElementById('withdraw-card').value;
+            const amount = parseFloat(amountInput);
+
+            if (!amount || amount < 100) {
+                return showToast('Минимальная сумма вывода — 100 ₽', 'error');
+            }
+            if (amount > currentBalance) {
+                return showToast('Недостаточно средств на балансе', 'error');
+            }
+            if (!cardInput) {
+                return showToast('Введите реквизиты для вывода', 'error');
+            }
+
+            // Блокируем кнопку от двойного нажатия
+            const btn = event.target;
+            btn.textContent = 'Обработка...';
+            btn.disabled = true;
+
+            // Списываем баланс (в реальности здесь должен быть запрос к API банка)
+            const newBalance = currentBalance - amount;
+            const { error } = await _supabase
+                .from('profiles')
+                .update({ balance: newBalance })
+                .eq('id', currentUser.id);
+
+            if (error) {
+                showToast('Ошибка базы данных: ' + error.message, 'error');
+                btn.textContent = 'Вывести';
+                btn.disabled = false;
+            } else {
+                showToast('Заявка на вывод создана! Ожидайте поступления.', 'success');
+                document.getElementById('wallet-balance').textContent = newBalance + ' ₽';
+                document.getElementById('withdraw-amount').value = '';
+                document.getElementById('withdraw-card').value = '';
+                btn.textContent = 'Вывести';
+                btn.disabled = false;
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
