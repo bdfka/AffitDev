@@ -18,7 +18,10 @@
         <div id="profile-content" class="hidden">
             <div class="profile-header">
                 <div class="avatar" id="avatar">?</div>
-                <div class="profile-info"><h2 id="profile-username">...</h2><p id="profile-email">...</p></div>
+                <div class="profile-info">
+                    <h2 id="profile-username" style="display:flex; align-items:center;">...</h2>
+                    <p id="profile-email">...</p>
+                </div>
             </div>
             <div class="profile-grid">
                 <div class="form-card">
@@ -38,18 +41,7 @@
             </div>
         </div>
     </div>
-<!-- Скрытый SVG для RGB-градиента -->
-<svg width="0" height="0" style="position: absolute;">
-    <defs>
-        <linearGradient id="rgbGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ff0000" />
-            <stop offset="33%" stop-color="#00ff00" />
-            <stop offset="66%" stop-color="#0000ff" />
-            <stop offset="100%" stop-color="#ff0000" />
-        </linearGradient>
-    </defs>
-</svg>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="ui.js"></script>
     <script>
@@ -58,43 +50,49 @@
             const { data: { session } } = await _supabase.auth.getSession();
             if (!session) return window.location.href = 'login.html';
             currentUser = session.user;
+            
             const { data: profile } = await _supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+            
             document.getElementById('profile-content').classList.remove('hidden');
-            document.getElementById('profile-username').textContent = profile?.username || currentUser.email;
             document.getElementById('profile-email').textContent = currentUser.email;
             document.getElementById('avatar').textContent = (profile?.username || 'U').charAt(0).toUpperCase();
             document.getElementById('new-username').value = profile?.username || '';
             document.getElementById('tg-id').value = profile?.telegram_id || '';
-        }
-// Внутри функции init() в profile.html
-const username = profile?.username || currentUser.email;
-const usernameEl = document.getElementById('profile-username');
+
+            // Вывод ника с галочкой
+            const usernameEl = document.getElementById('profile-username');
+            const username = profile?.username || currentUser.email;
             
-// Добавляем галочку, если это админ
-if (profile?.is_admin) {
-    usernameEl.innerHTML = `
-        ${username} 
-        <span class="verified-badge" title="Верифицированный аккаунт">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-        </span>
-    `;
-} else {
-    usernameEl.textContent = username;
-}
+            if (profile?.is_admin) {
+                usernameEl.innerHTML = `
+                    <span class="user-name-wrapper">
+                        ${username} 
+                        <span class="verified-badge" title="Администратор">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                        </span>
+                    </span>
+                `;
+            } else {
+                usernameEl.textContent = username;
+            }
+        }
+
         async function changeUsername() {
             const newName = document.getElementById('new-username').value;
             const { error } = await _supabase.from('profiles').update({ username: newName }).eq('id', currentUser.id);
             if (error) showToast(error.message, 'error');
-            else { showToast('Ник изменен!', 'success'); document.getElementById('profile-username').textContent = newName; }
+            else { showToast('Ник изменен!', 'success'); setTimeout(() => location.reload(), 1000); }
         }
+
         async function saveTelegramId() {
             const tgId = document.getElementById('tg-id').value;
             const { error } = await _supabase.from('profiles').update({ telegram_id: tgId }).eq('id', currentUser.id);
             if (error) showToast(error.message, 'error');
             else showToast('TG ID сохранен!', 'success');
         }
+
         async function logout() { await _supabase.auth.signOut(); window.location.href = 'index.html'; }
         init();
     </script>
