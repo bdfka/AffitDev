@@ -13,22 +13,12 @@
             <span class="logo-text">AffitDev</span>
         </a>
         <div class="auth-buttons">
-            <span id="admin-name" style="color: #00ff88; font-weight: 700; padding: 10px 20px;">...</span>
+            <span id="admin-name" style="color: #00ff88; font-weight: 700; padding: 10px 20px; display:flex; align-items:center;">...</span>
             <a href="profile.html" class="btn btn-login">Профиль</a>
             <button onclick="logout()" class="btn btn-login">Выйти</button>
         </div>
     </header>
-<!-- Скрытый SVG для RGB-градиента -->
-<svg width="0" height="0" style="position: absolute;">
-    <defs>
-        <linearGradient id="rgbGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ff0000" />
-            <stop offset="33%" stop-color="#00ff00" />
-            <stop offset="66%" stop-color="#0000ff" />
-            <stop offset="100%" stop-color="#ff0000" />
-        </linearGradient>
-    </defs>
-</svg>
+
     <div class="admin-container">
         <div id="access-denied" class="hidden" style="text-align:center; padding: 60px;">
             <h2 style="font-size: 32px; margin-bottom: 20px;">Доступ запрещен</h2>
@@ -95,7 +85,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="ui.js"></script>
     <script>
@@ -105,7 +95,18 @@
             const { data: profile } = await _supabase.from('profiles').select('username, is_admin').eq('id', session.user.id).single();
             if (!profile?.is_admin) return document.getElementById('access-denied').classList.remove('hidden');
             
-            document.getElementById('admin-name').textContent = '👑 ' + profile.username;
+            // Добавляем галочку админу в шапку
+            document.getElementById('admin-name').innerHTML = `
+                <span class="user-name-wrapper">
+                    👑 ${profile.username} 
+                    <span class="verified-badge" title="Администратор">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </svg>
+                    </span>
+                </span>
+            `;
+            
             document.getElementById('admin-panel').classList.remove('hidden');
             loadResources(); loadUsers();
         }
