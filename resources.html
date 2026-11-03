@@ -21,6 +21,7 @@
             <button class="filter-btn active" onclick="setFilter('all', event)">Все цены</button>
             <button class="filter-btn" onclick="setFilter('free', event)">Бесплатные</button>
             <button class="filter-btn" onclick="setFilter('paid', event)">Платные</button>
+            
             <select id="type-filter" class="filter-btn" style="background: rgba(255, 255, 255, 0.03); outline: none; cursor: pointer;" onchange="applyFilters()">
                 <option value="all">Все типы</option>
                 <option value="Сборка">Сборка</option>
@@ -28,21 +29,13 @@
                 <option value="Мир">Мир</option>
                 <option value="Ресурс пак">Ресурс пак</option>
             </select>
-            <input type="text" class="search-input" id="search-input" placeholder="Поиск..." oninput="applyFilters()">
+
+            <input type="text" class="search-input" id="search-input" placeholder="Поиск по названию..." oninput="applyFilters()">
         </div>
         <div class="cards-grid" id="resources-grid"></div>
     </div>
-<!-- Скрытый SVG для RGB-градиента -->
-<svg width="0" height="0" style="position: absolute;">
-    <defs>
-        <linearGradient id="rgbGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ff0000" />
-            <stop offset="33%" stop-color="#00ff00" />
-            <stop offset="66%" stop-color="#0000ff" />
-            <stop offset="100%" stop-color="#ff0000" />
-        </linearGradient>
-    </defs>
-</svg>
+
+    <!-- Модальное окно -->
     <div class="modal-overlay" id="resource-modal">
         <div class="modal-content">
             <button class="modal-close" onclick="closeModal()">✕</button>
@@ -66,17 +59,19 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="ui.js"></script>
     <script>
-        let allResources = [], filteredResources = [], currentFilter = 'all', currentResId = null, currentFile = '', currentUser = null;
+        let allResources = [], filteredResources = [], currentFilter = 'all', currentResId = null, currentFile = '', currentUser = null, isAdmin = false;
         
         async function init() {
             const { data: { session } } = await _supabase.auth.getSession();
             currentUser = session?.user || null;
+            
             if (currentUser) {
                 const { data: p } = await _supabase.from('profiles').select('username, is_admin').eq('id', currentUser.id).single();
+                isAdmin = p?.is_admin || false;
                 document.getElementById('header-auth').innerHTML = `<a href="profile.html" class="btn btn-login">${p?.username}</a><button onclick="_supabase.auth.signOut().then(()=>location.reload())" class="btn btn-login">Выйти</button>`;
             } else {
                 document.getElementById('header-auth').innerHTML = `<a href="login.html" class="btn btn-login">Войти</a>`;
@@ -127,8 +122,12 @@
             document.getElementById('modal-title').textContent = r.title;
             document.getElementById('modal-price').textContent = (parseFloat(r.price)||0) > 0 ? r.price + ' ₽' : 'Бесплатно';
             document.getElementById('modal-desc').textContent = r.extra_desc || r.description || '';
-            document.getElementById('modal-authors').textContent = r.authors || '';
+            document.getElementById('modal-authors').textContent = r.authors || 'Не указаны';
             document.getElementById('modal-img').innerHTML = r.image_url ? `<img src="${r.image_url}">` : '';
+            
+            const versionsDiv = document.getElementById('modal-versions');
+            versionsDiv.innerHTML = (r.version || 'v1.0').split(',').map(v => `<span>${v.trim()}</span>`).join('');
+
             document.getElementById('resource-modal').classList.add('active');
             loadComments();
         }
@@ -138,13 +137,24 @@
         async function downloadFromModal() {
             if (!currentUser) return showToast('Войдите, чтобы скачать!', 'error');
             if (currentFile) window.open(currentFile, '_blank');
+            
+            // Отправка уведомления в ТГ
             const { data: p } = await _supabase.from('profiles').select('telegram_id').eq('id', currentUser.id).single();
-            if (p?.telegram_id) fetch('http://localhost:3000/api/notify-download', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ userId: p.telegram_id, resourceName: document.getElementById('modal-title').textContent }) }).catch(()=>{});
+            if (p?.telegram_id) {
+                fetch('https://твой-бот.onrender.com/api/notify-download', { 
+                    method: 'POST', 
+                    headers: {'Content-Type':'application/json'}, 
+                    body: JSON.stringify({ userId: p.telegram_id, resourceName: document.getElementById('modal-title').textContent }) 
+                }).catch(()=>{});
+            }
         }
 
         async function loadComments() {
             const { data } = await _supabase.from('comments').select('*').eq('resource_id', currentResId).order('created_at');
-            document.getElementById('comments-list').innerHTML = (data || []).map(c => `<div class="comment-item"><div class="comment-avatar">${c.username[0]}</div><div class="comment-body"><div class="comment-author">${c.username}</div><div class="comment-text">${c.text}</div></div></div>`).join('');
+            document.getElementById('comments-list').innerHTML = (data || []).map(c => {
+                const canDelete = currentUser && (currentUser.id === c.user_id || isAdmin);
+                return `<div class="comment-item"><div class="comment-avatar">${(c.username||'U')[0]}</div><div class="comment-body"><div class="comment-header"><div><span class="comment-author">${c.username}</span> ${canDelete ? `<button class="btn-delete-comment" onclick="deleteComment('${c.id}')" style="background:none; border:none; color:red; cursor:pointer;">Удалить</button>` : ''}</div><span class="comment-date">${new Date(c.created_at).toLocaleDateString()}</span></div><div class="comment-text">${c.text}</div></div></div>`;
+            }).join('');
         }
 
         async function submitComment() {
@@ -154,6 +164,14 @@
             await _supabase.from('comments').insert({ resource_id: currentResId, user_id: currentUser.id, username: p.username, text: t });
             document.getElementById('comment-input').value = '';
             loadComments();
+        }
+
+        async function deleteComment(id) {
+            showConfirm('Удалить комментарий?', async (yes) => {
+                if (!yes) return;
+                await _supabase.from('comments').delete().eq('id', id);
+                loadComments();
+            });
         }
 
         init();
