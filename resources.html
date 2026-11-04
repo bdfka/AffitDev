@@ -41,8 +41,15 @@
             <button class="modal-close" onclick="closeModal()">✕</button>
             <div class="modal-header">
                 <div class="modal-header-image" id="modal-img"></div>
-                <div class="modal-info"><h2 id="modal-title"></h2><div class="modal-price" id="modal-price"></div></div>
-                <div class="modal-actions"><button class="btn btn-main btn-full" onclick="downloadFromModal()">Скачать</button></div>
+                <div class="modal-info">
+                    <h2 id="modal-title"></h2>
+                    <div class="modal-price" id="modal-price"></div>
+                    <!-- Показываем баланс пользователя -->
+                    <div style="color: var(--muted); font-size: 13px; margin-top: 10px;" id="modal-user-balance"></div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-main btn-full" id="download-btn" onclick="downloadFromModal()">Скачать</button>
+                </div>
             </div>
             <div class="modal-body">
                 <div><div class="modal-section-title">Описание</div><div class="modal-desc-text" id="modal-desc"></div></div>
@@ -128,6 +135,16 @@
             const versionsDiv = document.getElementById('modal-versions');
             versionsDiv.innerHTML = (r.version || 'v1.0').split(',').map(v => `<span>${v.trim()}</span>`).join('');
 
+            // Показываем баланс в модалке (если пользователь авторизован)
+            const balanceEl = document.getElementById('modal-user-balance');
+            if (currentUser) {
+                const { data: profile } = await _supabase.from('profiles').select('balance').eq('id', currentUser.id).single();
+                const bal = parseFloat(profile?.balance) || 0;
+                balanceEl.textContent = `Ваш баланс: ${bal} ₽`;
+            } else {
+                balanceEl.textContent = 'Войдите, чтобы скачать';
+            }
+
             document.getElementById('resource-modal').classList.add('active');
             loadComments();
         }
@@ -137,15 +154,38 @@
         async function downloadFromModal() {
             if (!currentUser) return showToast('Войдите, чтобы скачать!', 'error');
             
-            // --- ЛОГИРОВАНИЕ СКАЧИВАНИЯ ---
+            const resource = allResources.find(x => x.id == currentResourceId);
+            if (!resource) return;
+            const price = parseFloat(resource.price) || 0;
+
+            // 1. Проверяем баланс
+            const { data: profile } = await _supabase.from('profiles').select('balance').eq('id', currentUser.id).single();
+            const userBalance = parseFloat(profile?.balance) || 0;
+
+            if (price > 0) {
+                if (userBalance < price) {
+                    return showToast(`Недостаточно средств! Баланс: ${userBalance} ₽, цена: ${price} ₽`, 'error');
+                }
+                // Списываем
+                const newBalance = userBalance - price;
+                const { error } = await _supabase.from('profiles').update({ balance: newBalance }).eq('id', currentUser.id);
+                if (error) return showToast('Ошибка списания средств', 'error');
+                showToast(`Списано ${price} ₽. Остаток: ${newBalance} ₽`, 'success');
+                
+                // Обновляем отображение в модалке
+                document.getElementById('modal-user-balance').textContent = `Ваш баланс: ${newBalance} ₽`;
+            }
+
+            // 2. Логируем скачивание
             await _supabase.from('downloads').insert({
                 resource_id: currentResId,
                 user_id: currentUser.id
             });
-            // -----------------------------
 
+            // 3. Открываем файл
             if (currentFile) window.open(currentFile, '_blank');
             
+            // 4. Уведомление в ТГ
             const { data: p } = await _supabase.from('profiles').select('telegram_id').eq('id', currentUser.id).single();
             if (p?.telegram_id) {
                 fetch('https://твой-бот.onrender.com/api/notify-download', { 
